@@ -10,6 +10,7 @@ https://github.com/gaozhangyang/SimVP-Simpler-yet-Better-Video-Prediction
 import torch
 from torch import nn
 from modules import ConvSC, Inception
+from torch.nn import functional as F
 
 def stride_generator(N, reverse=False):
     strides = [1, 2]*10
@@ -52,7 +53,13 @@ class Decoder(nn.Module):
     def forward(self, hid, enc1=None):
         for i in range(0,len(self.dec)-1):
             hid = self.dec[i](hid)
-        Y = self.dec[-1](torch.cat([hid, enc1], dim=1))
+        # print(f"hid shape: {hid.shape}, enc1 shape: {enc1.shape}")
+        # Y = self.dec[-1](torch.cat([hid, enc1], dim=1))
+        # Adjust hid to match enc1's dimensions
+        hid_resized = F.interpolate(hid, size=(90, 250), mode='bilinear', align_corners=False)
+
+        # Now concatenate
+        Y = self.dec[-1](torch.cat([hid_resized, enc1], dim=1))
         Y = self.readout(Y)
         return Y
 
