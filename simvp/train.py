@@ -13,6 +13,8 @@ def main():
     # root_dir = r'D:\Workspace\Projects\qpn-simvp\data\DATA_SV\Precipitation\Radar\2019\10\01'
 
     root_dir = r'D:\Workspace\Projects\qpn-simvp\data\DATA_SV\Precipitation\Radar\2019\10'
+    save_dir = r'D:\Workspace\Projects\qpn-simvp\simvp\pth'  # Define the directory to save your .pth files
+    os.makedirs(save_dir, exist_ok=True)
     print(f"Using root_dir: {root_dir}")
     print(f"Does root_dir exist? {'Yes' if os.path.exists(root_dir) else 'No'}")
 
@@ -25,6 +27,10 @@ def main():
     shape_in = (12, 1, 304, 304)  # Adjust accordingly
     model = SimVP(shape_in, hid_S=16, hid_T=256, N_S=4, N_T=8, incep_ker=[3,5,7,11], groups=8)
     model = model.to(device)
+    #train(model, dataloader, device)
+    test(model)
+
+def train(model, dataloader, device, save_dir):
 
     # Model initialization, loss function, and optimizer definition here
     criterion = torch.nn.MSELoss()  # Example: MSE loss for prediction tasks
@@ -92,8 +98,14 @@ def main():
                     print(f'Epoch [{epoch+1}/{num_epochs}], Step [{batch_idx+1}/{len(dataloader)}], Loss: {loss.item()}')
 
         # Save the model after each epoch
-        torch.save(model.state_dict(), f'model_epoch_{epoch}.pth')
-        print(f'Model saved for epoch {epoch}')
+        model_save_path = os.path.join(save_dir, f'model_epoch_{epoch}.pth')
+        torch.save(model.state_dict(), model_save_path)
+        print(f"Model saved for epoch {epoch} at {model_save_path}")
+        # torch.save(model.state_dict(), f'model_epoch_{epoch}.pth')
+        # print(f'Model saved for epoch {epoch}')
 
+def test(model):
+   torch.load_state_dict(torch.load(model_save_path)
+   
 if __name__ == '__main__':
     main()
