@@ -21,7 +21,7 @@ def main():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f'Using device: {device}')
 
-    dataset = TIFDataset(root_dir)
+    dataset = TIFDataset(root_dir, sequence_length=4)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=True)  # Batch size of 1 given the sequence nature
 
     shape_in = (12, 1, 304, 304)  # Adjust accordingly
@@ -48,9 +48,9 @@ def train(model, dataloader, device, save_dir):
       return isnan
     
     for epoch in range(num_epochs):
-        for batch_idx, inputs in enumerate(dataloader):
+        for batch_idx, (inputs, targets) in enumerate(dataloader):
             # Ensure inputs are on the correct device
-            inputs = inputs.to(device)
+            inputs, targets = inputs.to(device), targets.to(device)
 
             if check_nan(inputs, "Inputs"):
               print("NaN detected in inputs, skipping this batch.")
@@ -105,7 +105,17 @@ def train(model, dataloader, device, save_dir):
         # print(f'Model saved for epoch {epoch}')
 
 def test(model):
-   torch.load_state_dict(torch.load(model_save_path)
-   
-if __name__ == '__main__':
+  torch.load_state_dict(torch.load(model_save_path))
+
+  if __name__ == '__main__':
     main()
+
+def predict(model, input_sequence):
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    # Assuming input_sequence is a tensor of shape [3, channels, height, width]
+    model.eval()
+    with torch.no_grad():
+        input_sequence = input_sequence.unsqueeze(0)  # Add batch dimension
+        input_sequence = input_sequence.to(device)
+        output = model(input_sequence)
+    return output

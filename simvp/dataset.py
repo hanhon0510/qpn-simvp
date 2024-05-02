@@ -5,37 +5,31 @@ import os
 import numpy as np
 
 class TIFDataset(Dataset):
-    def __init__(self, root_dir):
-        print(f"Looking in root_dir: {root_dir}")
-        if not os.path.exists(root_dir):
-            raise FileNotFoundError(f"The provided root directory does not exist: {root_dir}")
-        self.file_paths = []
-        for subdir, dirs, files in os.walk(root_dir):
-            for file in files:
-                if file.lower().endswith('.tif'):
-                    self.file_paths.append(os.path.join(subdir, file))
-        self.file_paths = sorted(self.file_paths)
+    def __init__(self, root_dir, sequence_length=4):
+        self.sequence_length = sequence_length
+        self.file_paths = [os.path.join(root_dir, fname) for fname in sorted(os.listdir(root_dir)) if fname.lower().endswith('.tif')]
+        
+        if len(self.file_paths) < sequence_length:
+            raise ValueError(f"Not enough data to form a sequence. The directory needs at least {sequence_length} .tif files.")
 
     def __len__(self):
-        return len(self.file_paths)
+        # Adjusted to ensure complete sequences are returned
+        return len(self.file_paths) - (self.sequence_length - 1)
 
     def __getitem__(self, idx):
-        file_path = self.file_paths[idx]
-        image = imread(file_path)
+        # Load a sequence of 4 images
+        sequence = [imread(self.file_paths[idx + i]) for i in range(4)]
+        # ... [rest of the preprocessing]
+
+        # Convert images to tensors and normalize
+        sequence = [torch.tensor(img, dtype=torch.float32) / img.max() for img in sequence]
         
-        # Assuming the image is single-channel; add channel dimension if it's not present
-        if image.ndim == 2:
-            image = np.expand_dims(image, axis=0)  # Add channel dimension
-        elif image.ndim == 3:
-            image = np.transpose(image, (2, 0, 1))  # Move channel to first dimension if it's last
+        # Stack into a tensor of shape [sequence_length, channels, height, width]
+        sequence_tensor = torch.stack(sequence)
+        
+        # Input is first 3 images, target is the 4th image
+        input_tensor = sequence_tensor[:3]  # shape [3, channels, height, width]
+        target_tensor = sequence_tensor[3]  # shape [channels, height, width]
 
-        # Handle NoData values; consider replacing them with 0 or another suitable value
-        image[image == -9999] = 0  # Replace NoData value with 0 or a suitable placeholder
-        image = np.clip(image, 0, None)  # Assuming you want to clip negative values
-
-        # Normalize image
-        image = torch.tensor(image, dtype=torch.float32)
-        image /= image.max()  # Simple normalization by the max value
-
-        return image
+        return input_tensor, target_tensor
 

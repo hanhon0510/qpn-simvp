@@ -24,9 +24,17 @@ def stride_generator(N, reverse=False):
     else: return strides[:N]
 
 class Encoder(nn.Module):
-    def __init__(self,C_in, C_hid, N_S):
-        super(Encoder,self).__init__()
+    # def __init__(self,C_in, C_hid, N_S):
+    #     super(Encoder,self).__init__()
+    #     strides = stride_generator(N_S)
+    #     self.enc = nn.Sequential(
+    #         ConvSC(C_in, C_hid, stride=strides[0]),
+    #         *[ConvSC(C_hid, C_hid, stride=s) for s in strides[1:]]
+    #     )
+    def __init__(self, C_in, C_hid, N_S):
+        super(Encoder, self).__init__()
         strides = stride_generator(N_S)
+        # Adjust the first ConvSC to take 1 input channel if your data is grayscale
         self.enc = nn.Sequential(
             ConvSC(C_in, C_hid, stride=strides[0]),
             *[ConvSC(C_hid, C_hid, stride=s) for s in strides[1:]]
@@ -48,20 +56,37 @@ class Decoder(nn.Module):
             *[ConvSC(C_hid, C_hid, stride=s, transpose=True) for s in strides[:-1]],
             ConvSC(2*C_hid, C_hid, stride=strides[-1], transpose=True)
         )
-        self.readout = nn.Conv2d(C_hid, C_out, 1)
+        self.readout = nn.Conv2d(C_hid, 1, 1)
+        # self.readout = nn.Conv2d(C_hid, C_out, 1)
     
-    def forward(self, hid, enc1=None):
-        for i in range(0,len(self.dec)-1):
-            hid = self.dec[i](hid)
-        # print(f"hid shape: {hid.shape}, enc1 shape: {enc1.shape}")
-        # Y = self.dec[-1](torch.cat([hid, enc1], dim=1))
-        # Adjust hid to match enc1's dimensions
-        hid_resized = F.interpolate(hid, size=(90, 250), mode='bilinear', align_corners=False)
+    # def forward(self, hid, enc1=None):
+    #     for i in range(0,len(self.dec)-1):
+    #         hid = self.dec[i](hid)
+    #     # print(f"hid shape: {hid.shape}, enc1 shape: {enc1.shape}")
 
-        # Now concatenate
-        Y = self.dec[-1](torch.cat([hid_resized, enc1], dim=1))
-        Y = self.readout(Y)
-        return Y
+    #     # Y = self.dec[-1](torch.cat([hid, enc1], dim=1))
+
+    #     # Adjust hid to match enc1's dimensions
+    #     hid_resized = F.interpolate(hid, size=(90, 250), mode='bilinear', align_corners=False)
+    #     Y = self.dec[-1](torch.cat([hid_resized, enc1], dim=1))
+    #     Y = self.readout(Y)
+    #     return Y
+    def forward(self, hid, enc1):
+      for i in range(0, len(self.dec)-1):
+          hid = self.dec[i](hid)
+      print("Shape after each Decoder step:", hid.shape)
+      
+      # Resize both tensors to have the same spatial dimensions
+      hid_resized = F.interpolate(hid, size=(90, 250), mode='bilinear', align_corners=False)
+      enc1_resized = F.interpolate(enc1, size=(90, 250), mode='bilinear', align_corners=False)
+      print("Shape after resizing hid:", hid_resized.shape)
+      print("Shape after resizing enc1:", enc1_resized.shape)
+
+      Y = self.dec[-1](torch.cat([hid_resized, enc1_resized], dim=1))
+      print("Shape before final readout:", Y.shape)
+      
+      Y = self.readout(Y)
+      return Y
 
 class Mid_Xnet(nn.Module):
     def __init__(self, channel_in, channel_hid, N_T, incep_ker = [3,5,7,11], groups=8):
@@ -106,12 +131,14 @@ class SimVP(nn.Module):
     def __init__(self, shape_in, hid_S=16, hid_T=256, N_S=4, N_T=8, incep_ker=[3,5,7,11], groups=8):
         super(SimVP, self).__init__()
         T, C, H, W = shape_in
-        self.enc = Encoder(C, hid_S, N_S)
+        self.enc = Encoder(1, hid_S, N_S)
+        # self.enc = Encoder(C, hid_S, N_S)
         self.hid = Mid_Xnet(T*hid_S, hid_T, N_T, incep_ker, groups)
         self.dec = Decoder(hid_S, C, N_S)
 
 
     def forward(self, x_raw):
+        print(x_raw.shape)
         B, T, C, H, W = x_raw.shape
         x = x_raw.view(B*T, C, H, W)
 
