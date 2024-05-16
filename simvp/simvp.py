@@ -74,16 +74,16 @@ class Decoder(nn.Module):
     def forward(self, hid, enc1):
       for i in range(0, len(self.dec)-1):
           hid = self.dec[i](hid)
-      print("Shape after each Decoder step:", hid.shape)
+      # print("Shape after each Decoder step:", hid.shape)
       
       # Resize both tensors to have the same spatial dimensions
       hid_resized = F.interpolate(hid, size=(90, 250), mode='bilinear', align_corners=False)
       enc1_resized = F.interpolate(enc1, size=(90, 250), mode='bilinear', align_corners=False)
-      print("Shape after resizing hid:", hid_resized.shape)
-      print("Shape after resizing enc1:", enc1_resized.shape)
+      # print("Shape after resizing hid:", hid_resized.shape)
+      # print("Shape after resizing enc1:", enc1_resized.shape)
 
       Y = self.dec[-1](torch.cat([hid_resized, enc1_resized], dim=1))
-      print("Shape before final readout:", Y.shape)
+      # print("Shape before final readout:", Y.shape)
       
       Y = self.readout(Y)
       return Y
